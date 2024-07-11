@@ -1,0 +1,244 @@
+﻿@page "/antiguo-sistema"
+
+@using ProyectoIngles.Data.Models
+@using ProyectoIngles.Components.Dialogs.AntiguoSistema
+@using ProyectoIngles.Data.Controllers
+@inject NavigationManager navigationManager
+@inject IDialogService DialogService
+@inject IWebHostEnvironment _env
+@inject HttpClient httpClient
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<PageTitle>Antiguo sistema</PageTitle>
+
+<div class="mb-10 d-flex justify-content-between">
+    <button class="button primary" @onclick="NuevoRegistro">Nuevo registro</button>
+    <div>
+        <button class="button blue" @onclick="SubirArchivos"><i class='bx bx-upload'></i>  Subir archivos</button>
+        <button class="button green" @onclick="DescargarExcel">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file-spreadsheet"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M8 11h8v7h-8z" /><path d="M8 15h8" /><path d="M11 11v7" /></svg>
+            Descargar excel
+        </button>
+    </div>
+</div>
+
+<MudChipSet @bind-SelectedChip="selectedCarrera" Filter="true" Mandatory="true" Class="mb-10">
+    <MudChip Text="Todas" Default="true" Color="Color.Info" @onclick="FiltrarCarreras">Todas</MudChip>
+    @foreach (var item in carreras)
+    {
+        <MudChip Text="@item.Nombre" Color="Color.Info" @onclick="FiltrarCarreras">@item.Nombre</MudChip>
+    }
+</MudChipSet>
+
+<MudTable Items="@datos" Striped=true Filter="new Func<AlumnosAntiguoSistema,bool>(FilterFunc1)">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Registros</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchText" Immediate="true" Placeholder="Buscar por nombre o número de control" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <ColGroup>
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col style="width: 200px;" />
+    </ColGroup>
+    <HeaderContent>
+        <MudTh>Folio acta</MudTh>
+        <MudTh>Num. Control</MudTh>
+        <MudTh>Nombre</MudTh>
+        <MudTh>Calificación</MudTh>
+        <MudTh>Carrera</MudTh>
+        <MudTh>Semestre</MudTh>
+        <MudTh>Doc. Entregado</MudTh>        
+        <MudTh>Emite</MudTh>
+        <MudTh>Ciclo</MudTh>
+        <MudTh>Fecha entregada</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Folio_acta</MudTd>
+        <MudTd>@context.Num_control</MudTd>
+        <MudTd>@context.Nombre</MudTd>
+        <MudTd>@context.Calificacion</MudTd>
+        <MudTd>@context.Carrera</MudTd>
+        <MudTd>@context.Semestre</MudTd>
+        <MudTd>@context.Documento_entregado</MudTd>
+        <MudTd>@context.Emite</MudTd>
+        <MudTd>@context.Ciclo</MudTd>
+        <MudTd>@context.Fecha_entrega_acta</MudTd>
+        <MudTd>
+            <button class="button orange" @onclick="() => EditarRegistro(context)" title="Editar registro"><i class="bx bx-edit-alt"></i></button>
+            <button class="button green" @onclick="() => VerExpediente(context)" title="Ver expediente"><i class='bx bxs-folder-open'></i></button>
+            <button class="button red" @onclick="() => EliminarRegistro(context)" title="Eliminar registro"><i class='bx bxs-trash'></i></button>
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager HideRowsPerPage=false RowsPerPageString="Filas por página" InfoFormat="{first_item}-{last_item} de {all_items}" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private string searchText = "";
+    private List<AlumnosAntiguoSistema>? datos = new List<AlumnosAntiguoSistema>();
+    private List<Carreras> carreras = new List<Carreras>();
+    private AntiguoSistemaController antiguoSistemaController = new AntiguoSistemaController();
+    private CarrerasController carrerasController = new CarrerasController();
+    private LoginController? loginController;
+    MudChip? selectedCarrera;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        loginController = new LoginController(JSRuntime);
+
+        if (firstRender)
+        {
+            var authorize = await loginController.ReadLocalStorage();
+            if (!authorize)
+            {
+                navigationManager.NavigateTo("/");
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+        datos = await antiguoSistemaController.ConsultarTodo();
+        carreras = await carrerasController.ConsultarTodo();
+    }
+
+    private async Task NuevoRegistro()
+    {
+        var parameters = new DialogParameters<FormAntiguoSistema>();
+        parameters.Add(x => x.Metodo, "Nuevo");
+        var dialog = await DialogService.ShowAsync<FormAntiguoSistema>(null, parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            datos = await antiguoSistemaController.ConsultarTodo();
+        }
+    }
+
+    private async Task EditarRegistro(AlumnosAntiguoSistema alumno)
+    {
+        if (await antiguoSistemaController.CompararAlumnos(alumno))
+        {
+            var parameters = new DialogParameters<FormAntiguoSistema>();
+            parameters.Add(x => x.alumno, alumno);
+            var dialog = await DialogService.ShowAsync<FormAntiguoSistema>(null, parameters);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                datos = await antiguoSistemaController.ConsultarTodo();
+            }
+        }
+        else
+        {
+            Snackbar.Add("Tus datos no están actualizados, recarga la página para actualizarlos.", Severity.Warning);
+        }
+    }    
+
+    private async Task EliminarRegistro(AlumnosAntiguoSistema alumno)
+    {
+        if (await antiguoSistemaController.CompararAlumnos(alumno))
+        {
+            var parameters = new DialogParameters<EliminarRegistro>();
+            parameters.Add(x => x.alumno, alumno);
+            var options = new DialogOptions() { MaxWidth = MaxWidth.ExtraSmall, Position = DialogPosition.TopCenter };
+            var dialog = await DialogService.ShowAsync<EliminarRegistro>(null, parameters, options);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                datos = await antiguoSistemaController.ConsultarTodo();
+            }
+        }
+        else
+        {
+            Snackbar.Add("Tus datos no están actualizados, recarga la página para actualizarlos.", Severity.Warning);
+        }
+    }
+
+    private async Task VerExpediente(AlumnosAntiguoSistema alumno)
+    {
+        var pdfPath = "docs/antiguo-sistema/" + alumno.Folio_acta + ".pdf";
+        var absoluteUri = new Uri(new Uri(navigationManager.BaseUri), pdfPath).AbsoluteUri;
+        var response = await httpClient.GetAsync(absoluteUri);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await JSRuntime.InvokeVoidAsync("openPDF", pdfPath);
+        }
+        else
+        {            
+            Snackbar.Add("Aún no se ha subido el expediente.", Severity.Warning);
+        }
+    }
+
+    private void SubirArchivos()
+    {
+        DialogService.Show<SubirArchivos>(null);
+    }
+
+    private async Task DescargarExcel()
+    {
+        if (datos?.Count == 0)
+        {
+            Snackbar.Add("No hay datos para convertir a excel.", Severity.Error);
+        }
+        else
+        {
+            try
+            {
+                string nombre = await antiguoSistemaController.NombreExcel(selectedCarrera?.Text);
+                await antiguoSistemaController.CrearExcel(_env, datos, nombre);
+                await JSRuntime.InvokeVoidAsync("downloadFile", "/docs/" + nombre);
+                Snackbar.Add("Excel generado correctamente.", Severity.Success);
+                await Task.Delay(2000);
+                antiguoSistemaController.EliminarExcel(_env, nombre);
+            }
+            catch (Exception)
+            {
+                Snackbar.Add("Ha ocurrido un error inesperado, vuelve a intentarlo.", Severity.Error);
+            }
+        }
+    }
+
+    private async Task FiltrarCarreras()
+    {
+        if (selectedCarrera?.Text == "Todas")
+        {
+            datos = await antiguoSistemaController.ConsultarTodo();
+        }
+
+        else if (selectedCarrera?.Text != null)
+        {
+            datos = (await antiguoSistemaController.ConsultarTodo()).Where(x => x.Carrera == selectedCarrera.Text).ToList();
+        }
+    }
+
+    private bool FilterFunc1(AlumnosAntiguoSistema alumno) => FilterFunc(alumno, searchText);
+
+    private bool FilterFunc(AlumnosAntiguoSistema alumno, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (alumno.Nombre.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (alumno.Num_control.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+}

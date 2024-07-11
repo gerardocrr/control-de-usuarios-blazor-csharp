@@ -1,0 +1,197 @@
+﻿@using ProyectoIngles.Data.Controllers
+@using ProyectoIngles.Data.Models
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <div class="p-2">
+            <div class="mb-5">
+                <h1 class="fs-4">@Titulo</h1>
+            </div>
+            <div class="row">
+                <div class="mb-5 col">
+                    <label class="form-label" for="folio_acta">Folio del acta: </label>
+                    <input class="@colorFolioActa" type="text" id="folio_acta" @bind="folio_acta" />
+                </div>
+                <div class="mb-5 col">
+                    <label class="form-label" for="num_control">Num. control: </label>
+                    <input class="@colorNum_control" type="text" id="num_control" @bind="num_control" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="mb-5 col-6">
+                    <label class="form-label" for="nombre">Nombre: </label>
+                    <input class="@colorNombre" type="text" id="nombre" @bind="nombre" />
+                </div>
+                <div class="col-3">
+                    <label class="form-label" for="sexo">Sexo: </label>
+                    <select class="form-select" @bind="sexo">
+                        <option value="Hombre">Hombre</option>
+                        <option value="Mujer">Mujer</option>
+                    </select>
+                </div>
+                <div class="mb-5 col-3">
+                    <label class="form-label" for="calificacion">Calificación: </label>
+                    <input class="@colorCalificacion" type="text" id="calificacion" @bind="calificacion" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="mb-5 col-8">
+                    <label class="form-label" for="carrera">Carrera: </label>
+                    <input class="@colorCarrera" type="text" id="carrera" @bind="carrera" />
+                </div>
+                <div class="mb-5 col-4">
+                    <label class="form-label" for="semestre">Semestre: </label>
+                    <input class="@colorSemestre" type="text" id="semestre" @bind="semestre" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="mb-5 col">
+                    <label class="form-label" for="documento_entregado">Documento entregado: </label>
+                    <input class="@colorDocumento" type="text" id="documento_entregado" @bind="documento_entregado" />
+                </div>
+                <div class="mb-5 col">
+                    <label class="form-label" for="emite">Emite: </label>
+                    <input class="@colorEmite" type="text" id="emite" @bind="emite" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="mb-5 col">
+                    <label class="form-label" for="ciclo">Ciclo: </label>
+                    <input class="@colorCiclo" type="text" id="ciclo" @bind="ciclo" />
+                </div>
+                <div class="mb-5 col">
+                    <label class="form-label" for="fecha_entregada">Fecha entregada: </label>
+                    <input class="@colorFecha" type="text" id="fecha_entregada" @bind="fecha_entregada" />
+                </div>
+            </div>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <div class="mb-5 mx-5">
+            <button class="button cancel mx-2" @onclick="Cancelar">Cancelar</button>
+            <button class="button primary" @onclick="Submit">@TextoBoton</button>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    [Parameter] public string? Metodo { get; set; }
+    [Parameter] public AlumnosAntiguoSistema alumno { get; set; }
+
+    private AntiguoSistemaController antiguoSistemaController = new AntiguoSistemaController();    
+
+    string? folio_acta; string? num_control; string? nombre; string? calificacion; string? carrera; string? semestre; string? documento_entregado; string? emite; string? ciclo; string? fecha_entregada; string? sexo;
+    string? Titulo; string? TextoBoton;
+    string? colorFolioActa = "form-control", colorNombre = "form-control", colorNum_control = "form-control", colorCalificacion = "form-control", colorCarrera = "form-control", colorSemestre = "form-control", colorDocumento = "form-control", colorEmite = "form-control", colorCiclo = "form-control", colorFecha = "form-control";
+
+    protected override void OnInitialized()
+    {
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+        if (Metodo == "Nuevo")
+        {
+            Nuevo();
+        }
+        else
+        {
+            Actualizar();
+        }
+    }
+
+    public void Submit()
+    {
+        if (Metodo == "Nuevo")
+        {
+            NuevoRegistro();
+        }
+        else
+        {
+            ActualizarRegistro();
+        }
+    }
+
+    private void NuevoRegistro()
+    {
+        var validacion = antiguoSistemaController.Validacion(folio_acta, num_control, nombre, calificacion, carrera, semestre, documento_entregado, emite, ciclo, fecha_entregada);
+        if (validacion.Item1)
+        {
+            foreach (var item in validacion.Item2)
+            {
+                Snackbar.Add(item, Severity.Error);
+            }
+            colorFolioActa = validacion.Item3.Folio_acta; colorNum_control = validacion.Item3.Num_control; colorNombre = validacion.Item3.Nombre; colorNum_control = validacion.Item3.Num_control; colorCalificacion = validacion.Item3.Calificacion; colorCarrera = validacion.Item3.Carrera; colorSemestre = validacion.Item3.Semestre; colorDocumento = validacion.Item3.Doc_entregado; colorEmite = validacion.Item3.Emite; colorCiclo = validacion.Item3.Ciclo; colorFecha = validacion.Item3.Fecha_entregada;
+        }
+        else
+        {            
+            var result = antiguoSistemaController.NuevoRegistro(folio_acta, num_control, nombre, calificacion, carrera, semestre, documento_entregado, emite, ciclo, fecha_entregada, sexo);
+            if (result)
+            {
+                MudDialog?.Close(DialogResult.Ok(true));
+                Snackbar.Add("Datos almacenados correctamente.", Severity.Success);
+            }
+            else
+            {
+                MudDialog?.Close(DialogResult.Ok(false));
+                Snackbar.Add("Ocurrió un error al almacenar los datos.", Severity.Error);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void ActualizarRegistro()
+    {
+        var validacion = antiguoSistemaController.Validacion(folio_acta, num_control, nombre, calificacion, carrera, semestre, documento_entregado, emite, ciclo, fecha_entregada);
+        if (validacion.Item1)
+        {
+            foreach (var item in validacion.Item2)
+            {
+                Snackbar.Add(item, Severity.Error);
+            }
+            colorFolioActa = validacion.Item3.Folio_acta; colorNum_control = validacion.Item3.Num_control; colorNombre = validacion.Item3.Nombre; colorNum_control = validacion.Item3.Num_control; colorCalificacion = validacion.Item3.Calificacion; colorCarrera = validacion.Item3.Carrera; colorSemestre = validacion.Item3.Semestre; colorDocumento = validacion.Item3.Doc_entregado; colorEmite = validacion.Item3.Emite; colorCiclo = validacion.Item3.Ciclo; colorFecha = validacion.Item3.Fecha_entregada;
+        }
+        else
+        {
+            var result = antiguoSistemaController.ActualizarRegistro(folio_acta, num_control, nombre, calificacion, carrera, semestre, documento_entregado, emite, ciclo, fecha_entregada, sexo, alumno.ID);
+            if (result)
+            {
+                MudDialog?.Close(DialogResult.Ok(true));
+                Snackbar.Add("Datos actualizados correctamente.", Severity.Success);
+            }
+            else
+            {
+                MudDialog?.Close(DialogResult.Ok(false));
+                Snackbar.Add("Ocurrió un error al actualizar los datos.", Severity.Error);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private void Nuevo()
+    {
+        Titulo = "Nuevo registro";
+        TextoBoton = "Guardar";
+        sexo = "Hombre";
+    }
+
+    private void Actualizar()
+    {
+        Titulo = "Actualizar registro";
+        TextoBoton = "Actualizar";        
+        folio_acta = alumno.Folio_acta;
+        num_control = alumno.Num_control;
+        nombre = alumno.Nombre;
+        calificacion = alumno.Calificacion;
+        carrera = alumno.Carrera;
+        semestre = alumno.Semestre;
+        documento_entregado = alumno.Documento_entregado;
+        emite = alumno.Emite;
+        ciclo = alumno.Ciclo;
+        fecha_entregada = alumno.Fecha_entrega_acta;
+        sexo = alumno.Sexo;
+    }
+
+    void Cancelar() => MudDialog?.Cancel();
+}

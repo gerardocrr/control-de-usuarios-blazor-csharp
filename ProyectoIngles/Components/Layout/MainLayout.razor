@@ -1,0 +1,143 @@
+﻿@inherits LayoutComponentBase
+@using ProyectoIngles.Components.Dialogs.Configuracion
+@using ProyectoIngles.Data.Controllers
+@using ProyectoIngles.Data.Models
+@inject NavigationManager navigationManager
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<div class="@classSidebar">
+    <div class="mylogo-details">
+        <i class="bx bx-world myicon myi"></i>
+        <div class="mylogo_name">Inglés</div>
+        <i class="@classMenu" id="btn" @onclick="ToggleSidebar"></i>
+    </div>
+    <div class="mynav-list">
+        <li class="myli">
+            <a class="mya" href="/nuevo-sistema">
+                <i class="bx bx-desktop myi"></i>
+                <span class="mylinks_name mt-1">Nuevo sistema</span>
+            </a>
+            <span class="mytooltip">Nuevo sistema</span>
+        </li>
+        <li class="myli">
+            <a class="mya" href="/antiguo-sistema">
+                <i class="bx bx-archive myi"></i>
+                <span class="mylinks_name mt-1">Antiguo sistema</span>
+            </a>
+            <span class="mytooltip">Antiguo sistema</span>
+        </li>
+        <li class="myli">
+            <a class="mya" href="/otros">
+                <i class="bx bx-list-ul myi"></i>
+                <span class="mylinks_name mt-1">Otros</span>
+            </a>
+            <span class="mytooltip">Otros</span>
+        </li>
+        <li class="myprofile myli">
+            <div class="myprofile-details">
+                <img src="/img/logo.jpg"
+                     alt="profileImg" />
+                <div class="myname_job">
+                    <div class="myname">@Nombre</div>
+                </div>
+            </div>
+            <i class="bx bx-cog myi mx-10" id="settings" @onclick="Configuracion"></i>
+            <i class="bx bx-log-out myi" id="log_out" @onclick="LogOut"></i>
+        </li>
+    </div>
+</div>
+
+<section class="myhome-section p-5">
+    @Body
+</section>
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+<MudThemeProvider Theme="MyCustomTheme" />
+<MudDialogProvider FullWidth="true"
+                   MaxWidth="MaxWidth.Small"
+                   CloseButton="false"
+                   DisableBackdropClick="true"
+                   NoHeader="true"
+                   Position="DialogPosition.Center"
+                   CloseOnEscapeKey="true" />
+<MudSnackbarProvider />
+
+@code{
+    LoginController loginController;
+    UsuariosController usuarioController = new UsuariosController();
+    private string classSidebar = "mysidebar";
+    private string classMenu = "bx bx-menu myi";
+    string? Nombre;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        loginController = new LoginController(JSRuntime);
+
+        if (firstRender)
+        {
+            loginController = new LoginController(JSRuntime);
+            Nombre = await loginController.ReadLocalStorageName();
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+    }
+
+    private void ToggleSidebar()
+    {
+        if (classSidebar == "mysidebar")
+        {
+            classSidebar = "mysidebar open";
+            classMenu = "bx bx-menu-alt-right myi";
+        }
+        else
+        {
+            classSidebar = "mysidebar";
+            classMenu = "bx bx-menu myi";
+        }
+    }
+
+    private async Task Configuracion()
+    {
+        Usuarios usuario = await usuarioController.ConsultarUsuario(Nombre);
+        var parameters = new DialogParameters<Perfil>();
+        parameters.Add(x => x.usuario, usuario);
+        var dialog = await DialogService.ShowAsync<Perfil>(null, parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            if (result.Data.ToString() != "True")
+            {
+                Nombre = result.Data.ToString();
+                await loginController.SetLocalStorage(Nombre);
+            }
+        }
+    }
+
+    private async Task LogOut()
+    {
+        await loginController.DeleteLocalStorage();
+        navigationManager.NavigateTo("/");
+        Snackbar.Add("Sesión cerrada correctamente.", Severity.Success);
+    }
+
+    MudTheme MyCustomTheme = new MudTheme()
+        {
+            Palette = new PaletteLight()
+            {
+                Primary = Colors.Blue.Default
+            }
+        };
+}

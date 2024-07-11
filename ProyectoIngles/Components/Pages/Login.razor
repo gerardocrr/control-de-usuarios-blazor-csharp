@@ -1,0 +1,95 @@
+﻿@page "/login"
+
+@layout EmptyLayout
+@using ProyectoIngles.Components.Layout
+@using ProyectoIngles.Data.Controllers
+@inject NavigationManager navigationManager
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<PageTitle>Login</PageTitle>
+
+<section class="vh-100" style="background-color: white;">
+    <div class="container py-5 h-100">
+        <div class="row d-flex justify-content-center align-items-center h-90">
+            <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+                <div class="text-center">
+                    <img src="img/logo.jpg" alt="logo" class="" width="40%" />
+                </div>
+                <div class="card shadow-2-strong text-white" style="border-radius: 1rem; background-color: #1d1b31;">
+                    <div class="card-body p-5">
+                        <h3 class="mb-5">Iniciar sesión</h3>
+                        <div class="form-outline mb-4">
+                            <label class="form-label" for="nombre">Nombre:</label>
+                            <input type="text" id="nombre" class="form-control" @bind="nombre" />
+                        </div>
+                        <div class="form-outline mb-5">
+                            <label class="form-label" for="contraseña">Contraseña:</label>
+                            <input type="password" id="contraseña" class="form-control" @bind="contraseña" />
+                        </div>
+                        <div>
+                            <button class="button login w-100" @onclick="LogIn">Entrar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    LoginController loginController;
+    string? nombre; string? contraseña;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        loginController = new LoginController(JSRuntime);
+
+        if (firstRender)
+        {
+            var authorize = await loginController.ReadLocalStorage();
+            if (authorize)
+            {
+                navigationManager.NavigateTo("/nuevo-sistema");
+            }
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        loginController = new LoginController(JSRuntime);
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+    }
+
+    private async void LogIn()
+    {
+        var hash = loginController.ConsultarHash(nombre);        
+
+        try
+        {
+            if (string.IsNullOrEmpty(hash) || string.IsNullOrEmpty(nombre))
+            {
+                Snackbar.Add("El nombre o la contraseña son incorrectos.", Severity.Error);
+            }
+            else
+            {
+                if (loginController.VerifyPassword(contraseña, hash))
+                {
+                    await loginController.SetLocalStorage(nombre);
+                    navigationManager.NavigateTo("/nuevo-sistema");
+                    Snackbar.Add("Sesión iniciada correctamente.", Severity.Success);
+                }
+                else
+                {
+                    Snackbar.Add("El nombre o la contraseña son incorrectos.", Severity.Error);
+                }
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Ha ocurrido un error inesperado, vuelva a intentarlo.", Severity.Error);
+        }
+    }
+}

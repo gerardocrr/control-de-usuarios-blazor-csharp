@@ -1,0 +1,117 @@
+﻿@inject ISnackbar Snackbar
+@inject IWebHostEnvironment _env
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Style="width: 100%">
+            <MudFileUpload T="IReadOnlyList<IBrowserFile>"
+                           AppendMultipleFiles
+                           OnFilesChanged="OnInputFileChanged"
+                           Hidden="@false"
+                           InputClass="absolute mud-width-full mud-height-full overflow-hidden z-20"
+                           InputStyle="opacity:0"
+                           @ondragenter="@SetDragClass"
+                           @ondragleave="@ClearDragClass"
+                           @ondragend="@ClearDragClass">
+                <ButtonTemplate>
+                    <MudPaper Height="300px" Outlined="true" Class="@_dragClass">
+                        <MudText Typo="Typo.h6">Arrastre y suelte los archivos aquí o haga clic</MudText>
+                        <label class="mt-2" style="color: #CCCCCC">Recuarda que el nombre del archivo debe ser el folio del alumno.</label>
+                        <label class="mt-2" style="color: #CCCCCC">Tamaño maximo de archivos 10MB.</label>
+                        <br />
+                        @foreach (var file in _fileNames)
+                        {
+                            <MudChip Color="Color.Info" Text="@file" />
+                        }
+                    </MudPaper>
+                    <MudToolBar DisableGutters="true" Class="relative d-flex justify-start gap-4 z-30 mb-5">
+                        <button class="button red mx-2" @onclick="Clear" disabled="@(!_fileNames.Any())">Limpiar</button>
+                    </MudToolBar>
+                </ButtonTemplate>
+            </MudFileUpload>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <div class="mb-5 mx-5">
+            <button class="button cancel mx-2" @onclick="Cancelar">Cancelar</button>
+            <button class="button primary" @onclick="Upload" disabled="@(!_fileNames.Any())">Subir</button>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    private const string DefaultDragClass = "relative rounded-lg border-2 border-dashed pa-4 mt-4 mud-width-full mud-height-full z-10";
+    private string _dragClass = DefaultDragClass;
+    private readonly List<string> _fileNames = new();
+    private IReadOnlyList<IBrowserFile> files;
+
+    protected override void OnInitialized()
+    {
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+    }
+
+    private void OnInputFileChanged(InputFileChangeEventArgs e)
+    {
+        files = e.GetMultipleFiles();
+
+        foreach (var file in files)
+        {
+            if (!file.Name.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+            {
+                Snackbar.Add("Solo se permiten archivos PDF.", Severity.Error);
+                Clear();
+            }
+            else if (file.Size > 10000000)
+            {
+                Snackbar.Add("Tú archivo supera los 10MB permitidos.", Severity.Error);
+                Clear();
+            }
+            else
+            {
+                ClearDragClass();
+                _fileNames.Add(file.Name);
+            }
+        }
+    }
+
+    private async Task Upload()
+    {
+        var folderPath = Path.Combine(_env.WebRootPath, "docs/antiguo-sistema");
+
+        try
+        {
+            foreach (var file in files)
+            {
+                var filePath = Path.Combine(folderPath, file.Name);
+
+                using (var fileStream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.OpenReadStream(maxAllowedSize: 1024 * 10000).CopyToAsync(fileStream);
+                    Snackbar.Add("Se ha subido el expediente correctamente.", Severity.Success);
+                    Cancelar();
+                }
+            }
+        }
+        catch (Exception)
+        {
+            Snackbar.Add("Ha ocurrido un error inesperado, vuelve a intentarlo.", Severity.Error);
+            Cancelar();
+        }        
+    }
+
+    private async Task Clear()
+    {
+        _fileNames.Clear();
+        ClearDragClass();
+        await Task.Delay(100);
+    }
+
+    private void SetDragClass() => _dragClass = $"{DefaultDragClass} mud-border-primary";
+
+    private void ClearDragClass() => _dragClass = DefaultDragClass;
+
+    void Cancelar() => MudDialog?.Cancel();
+}

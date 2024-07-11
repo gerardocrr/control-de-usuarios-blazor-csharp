@@ -1,0 +1,267 @@
+﻿@page "/nuevo-sistema"
+
+@using ProyectoIngles.Components.Dialogs.NuevoSistema
+@using ProyectoIngles.Data.Controllers
+@using ProyectoIngles.Data.Models
+@inject NavigationManager navigationManager
+@inject IDialogService DialogService
+@inject IWebHostEnvironment _env
+@inject HttpClient httpClient
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<PageTitle>Nuevo sistema</PageTitle>
+
+<div class="mb-10 d-flex justify-content-between">
+    <button class="button primary" @onclick="NuevoRegistro">Nuevo registro</button>
+    <div>
+        <button class="button blue" @onclick="SubirArchivos"><i class='bx bx-upload'></i>  Subir archivos</button>
+        <button class="button green" @onclick="DescargarExcel">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon icon-tabler icons-tabler-outline icon-tabler-file-spreadsheet"><path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M14 3v4a1 1 0 0 0 1 1h4" /><path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" /><path d="M8 11h8v7h-8z" /><path d="M8 15h8" /><path d="M11 11v7" /></svg>
+            Descargar excel
+        </button>
+    </div>
+</div>
+
+<MudChipSet @bind-SelectedChip="selectedCarrera" Filter="true" Mandatory="true" Class="mb-10">
+    <MudChip Text="Todas" Default="true" Color="Color.Info" @onclick="FiltrarCarreras">Todas</MudChip>
+    @foreach (var item in carreras)
+    {
+        <MudChip Text="@item.Nombre" Color="Color.Info" @onclick="FiltrarCarreras">@item.Nombre</MudChip>
+    }
+</MudChipSet>
+
+<MudTable Style="font-size: 10px" Items="@datos" Striped=true Filter="new Func<AlumnosNuevoSistema,bool>(FilterFunc1)">
+    <ToolBarContent>
+        <MudText Typo="Typo.h6">Registros</MudText>
+        <MudSpacer />
+        <MudTextField @bind-Value="searchText" Immediate="true" Placeholder="Buscar por nombre o número de control" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+    </ToolBarContent>
+    <ColGroup>
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col />
+        <col style="width: 150px;" />
+        <col style="width: 200px;" />
+    </ColGroup>
+    <HeaderContent>
+        <MudTh>Folio</MudTh>
+        <MudTh>Nombre</MudTh>
+        <MudTh>Num. Control</MudTh>
+        <MudTh>Carrera</MudTh>
+        <MudTh>Doc. Entregado</MudTh>
+        <MudTh>Nivel de inglés</MudTh>
+        <MudTh>Escuela certificadora</MudTh>
+        <MudTh>Fecha de la constancia</MudTh>
+        <MudTh>Recibido de C.E</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Folio</MudTd>
+        <MudTd>@context.Nombre</MudTd>
+        <MudTd>@context.Num_control</MudTd>
+        <MudTd>@context.Carrera</MudTd>
+        <MudTd>@context.Documento_entregado</MudTd>
+        <MudTd>@context.Nivel_ingles</MudTd>
+        <MudTd>@context.Escuela_certificadora</MudTd>
+        <MudTd>@context.Fecha_constancia_generada</MudTd>
+        <MudTd>
+            @if (context.Recibido_de_CE == "RECIBIDO")
+            {
+                <div class="recibido" @onclick="() => ActualizarRecibido(context)">@context.Recibido_de_CE</div>
+            }
+            else
+            {
+                <div class="no-recibido" @onclick="() => ActualizarRecibido(context)">@context.Recibido_de_CE</div>
+            }
+        </MudTd>
+        <MudTd>
+            <button class="button orange" @onclick="() => EditarRegistro(context)" title="Editar registro"><i class="bx bx-edit-alt"></i></button>
+            <button class="button blue" @onclick="() => GenerarConstancia(context)" title="Generar constancia"><i class='bx bxs-file-doc'></i></button>
+            <button class="button green" @onclick="() => VerExpediente(context)" title="Ver expediente"><i class='bx bxs-folder-open'></i></button>
+        </MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager HideRowsPerPage=false RowsPerPageString="Filas por página" InfoFormat="{first_item}-{last_item} de {all_items}" />
+    </PagerContent>
+</MudTable>
+
+
+
+@code {
+    private List<AlumnosNuevoSistema> datos = new List<AlumnosNuevoSistema>();
+    private List<Carreras> carreras = new List<Carreras>();
+    private NuevoSistemaController nuevoSistemaController = new NuevoSistemaController();
+    private CarrerasController carrerasController = new CarrerasController();
+    private LoginController? loginController;
+    private string searchText = "";
+    MudChip? selectedCarrera;    
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        loginController = new LoginController(JSRuntime);
+
+        if (firstRender)
+        {
+            var authorize = await loginController.ReadLocalStorage();
+            if (!authorize)
+            {
+                navigationManager.NavigateTo("/");
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+        datos = await nuevoSistemaController.ConsultarTodo();
+        carreras = await carrerasController.ConsultarTodo();
+    }
+
+    private async Task NuevoRegistro()
+    {
+        var parameters = new DialogParameters<FormNuevoSistema>();
+        parameters.Add(x => x.Metodo, "Nuevo");
+        var dialog = await DialogService.ShowAsync<FormNuevoSistema>(null, parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            datos = await nuevoSistemaController.ConsultarTodo();           
+        }
+    }
+
+    private async Task EditarRegistro(AlumnosNuevoSistema alumno)
+    {
+        if (await nuevoSistemaController.CompararAlumnos(alumno))
+        {
+            var parameters = new DialogParameters<FormNuevoSistema>();
+            parameters.Add(x => x.alumno, alumno);
+            var dialog = await DialogService.ShowAsync<FormNuevoSistema>(null, parameters);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                datos = await nuevoSistemaController.ConsultarTodo();
+            }
+        }
+        else
+        {
+            Snackbar.Add("Tus datos no están actualizados, recarga la página para actualizarlos.", Severity.Warning);
+        }
+    }
+
+    private async Task ActualizarRecibido(AlumnosNuevoSistema alumno)
+    {
+        if (await nuevoSistemaController.CompararAlumnos(alumno))
+        {
+            var result = nuevoSistemaController.ActualizarRecibido(alumno.Recibido_de_CE, alumno.ID);
+            if (result)
+            {
+                datos = await nuevoSistemaController.ConsultarTodo();
+            }
+        }
+        else
+        {
+            Snackbar.Add("Tus datos no están actualizados, recarga la página para actualizarlos.", Severity.Warning);
+        }
+    }    
+
+    private async Task GenerarConstancia(AlumnosNuevoSistema alumno)
+    {
+        if (await nuevoSistemaController.CompararAlumnos(alumno))
+        {
+            var parameters = new DialogParameters<FormConstancia>();
+            parameters.Add(x => x.alumno, alumno);
+            var dialog = await DialogService.ShowAsync<FormConstancia>(null, parameters);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                datos = await nuevoSistemaController.ConsultarTodo();
+            }
+        }
+        else
+        {
+            Snackbar.Add("Tus datos no están actualizados, recarga la página para actualizarlos.", Severity.Warning);
+        }
+    }
+
+    private async Task VerExpediente(AlumnosNuevoSistema alumno)
+    {
+        var pdfPath = "docs/nuevo-sistema/" + alumno.Folio + ".pdf";
+        var absoluteUri = new Uri(new Uri(navigationManager.BaseUri), pdfPath).AbsoluteUri;
+        var response = await httpClient.GetAsync(absoluteUri);
+
+        if (response.IsSuccessStatusCode)
+        {
+            await JSRuntime.InvokeVoidAsync("openPDF", pdfPath);
+        }
+        else
+        {
+            Snackbar.Add("Aún no se ha subido el expediente.", Severity.Warning);
+        }
+    }
+
+    private void SubirArchivos()
+    {
+        DialogService.Show<SubirArchivos>(null);
+    }
+
+    private async Task DescargarExcel()
+    {
+        if (datos?.Count == 0)
+        {
+            Snackbar.Add("No hay datos para convertir a excel.", Severity.Error);
+        }
+        else
+        {
+            try
+            {
+                string nombre = await nuevoSistemaController.NombreExcel(selectedCarrera?.Text);
+                await nuevoSistemaController.CrearExcel(_env, datos, nombre);
+                await JSRuntime.InvokeVoidAsync("downloadFile", "/docs/" + nombre);
+                Snackbar.Add("Excel generado correctamente.", Severity.Success);
+                await Task.Delay(2000);
+                nuevoSistemaController.EliminarExcel(_env, nombre);
+            }
+            catch (Exception)
+            {
+                Snackbar.Add("Ha ocurrido un error inesperado, vuelve a intentarlo.", Severity.Error);
+            }
+        }
+    }
+
+    private async Task FiltrarCarreras()
+    {
+        if (selectedCarrera?.Text == "Todas")
+        {
+            datos = await nuevoSistemaController.ConsultarTodo();
+        }
+
+        else if (selectedCarrera?.Text != null)
+        {
+            datos = (await nuevoSistemaController.ConsultarTodo()).Where(x => x.Carrera == selectedCarrera.Text).ToList();
+        }
+    }
+
+    private bool FilterFunc1(AlumnosNuevoSistema alumno) => FilterFunc(alumno, searchText);
+
+    private bool FilterFunc(AlumnosNuevoSistema alumno, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (alumno.Nombre.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        if (alumno.Num_control.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+}

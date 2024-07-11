@@ -1,0 +1,253 @@
+﻿@using ProyectoIngles.Data.Controllers
+@using ProyectoIngles.Data.Models
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <div class="p-2">
+            <div class="mb-5">
+                <h1 class="fs-4">@Titulo</h1>
+            </div>
+            <div class="mb-5 row">
+                <div class="col-8">
+                    <label class="form-label" for="nombre">Nombre: </label>
+                    <input class="@colorNombre" type="text" id="nombre" @bind="nombre" />
+                </div>
+                <div class="col-4">
+                    <label class="form-label" for="num_control">Num. control: </label>
+                    <input class="@colorNum_control" type="text" id="num_control" @bind="num_control" />
+                </div>
+            </div>            
+            <div class="mb-5 row">
+                <div class="col-8">
+                    <label class="form-label" for="carrera">Carrera: </label>
+                    <select class="form-select form-select-sm" @bind="carreraId">
+                        @foreach (var carrera in carreras)
+                        {
+                            <option value="@carrera.ID">@carrera.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-4">
+                    <label class="form-label" for="sexo">Sexo: </label>
+                    <select class="form-select form-select-sm" @bind="sexo">
+                        <option value="Hombre">Hombre</option>
+                        <option value="Mujer">Mujer</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mb-5">
+                <label class="form-label" for="documento_entregado">Documento entregadó: </label>                
+                <select class="form-select form-select-sm" @bind="documento_entregadoId">
+                    @foreach (var documento in documentos)
+                    {
+                        <option value="@documento.ID">@documento.Nombre</option>
+                    }
+                </select>
+            </div>
+            <div class="mb-5 row">
+                <div class="col-8">
+                    <label class="form-label" for="escuela_certificadora">Escuela certificadora: </label>
+                    <select class="form-select form-select-sm" @bind="escuela_certificadoraId">
+                        @foreach (var escuela in escuelas)
+                        {
+                            <option value="@escuela.ID">@escuela.Nombre</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-4">
+                    <label class="form-label" for="nivel_ingles">Nivel de ingles: </label>
+                    <select class="form-select form-select-sm" @bind="nivel_ingles">
+                        <option value="B1">B1</option>
+                        <option value="B2">B2</option>
+                        <option value="C1">C1</option>
+                        <option value="C2">C2</option>
+                        <option value="A2">A2</option>
+                    </select>
+                </div>
+            </div>            
+            <div class="mb-5">
+                <label class="form-label" for="puntaje">¿Necesitas agregar un puntaje?</label>
+                <MudRadioGroup @bind-Value="@checkPuntaje" >
+                    <MudRadio Color="Color.Primary" Value="@("d-none")">No</MudRadio>
+                    <MudRadio Color="Color.Primary" Value="@("")">Si</MudRadio>
+                </MudRadioGroup>
+                <label class="form-label @checkPuntaje" for="puntaje">Puntaje:</label>
+                <div class="@checkPuntaje">
+                    <input class="@colorPuntaje" type="text" id="puntaje" @bind="puntaje" />
+                </div>
+            </div>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <div class="mb-5 mx-5">
+            <button class="button cancel mx-2" @onclick="Cancelar">Cancelar</button>
+            <button class="button primary" @onclick="Submit">@TextoBoton</button>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    [Parameter] public string? Metodo { get; set; }
+    [Parameter] public AlumnosNuevoSistema alumno { get; set; }
+
+    private NuevoSistemaController nuevoSistemaController = new NuevoSistemaController();
+    private CarrerasController carreraController = new CarrerasController();
+    private DocumentosController documentoController = new DocumentosController();
+    private EscuelasController escuelaController = new EscuelasController();
+    private List<Carreras> carreras = new List<Carreras>();
+    private List<Documentos> documentos = new List<Documentos>();
+    private List<Escuelas> escuelas = new List<Escuelas>();
+
+    string? nombre; string? num_control; int carreraId; int documento_entregadoId; string? nivel_ingles; int escuela_certificadoraId; string? puntaje; string? sexo;
+    string? colorNombre = "form-control", colorNum_control = "form-control", colorPuntaje = "form-control", checkPuntaje;
+    string? Titulo, TextoBoton;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+        if (Metodo == "Nuevo")
+        {
+            await Nuevo();
+        }
+        else
+        {
+            await Actualizar();
+        }
+    }
+
+    public void Submit()
+    {        
+        if (Metodo == "Nuevo")
+        {
+            NuevoRegistro();
+        }
+        else
+        {
+            ActualizarRegistro();
+        }
+    }
+
+    private async void NuevoRegistro()
+    {
+        puntaje = checkPuntaje == "d-none" ? "N/A" : puntaje;
+        var validacion = await nuevoSistemaController.Validacion(nombre, num_control, puntaje);
+        if (validacion.Item1)
+        {
+            foreach (var item in validacion.Item2)
+            {
+                Snackbar.Add(item, Severity.Error);
+            }
+            colorNombre = validacion.Item3.Nombre; colorNum_control = validacion.Item3.Num_control; colorPuntaje = validacion.Item3.Puntaje;
+        }
+        else
+        {
+            string folio = await nuevoSistemaController.ConsultarFolio();
+            var result = nuevoSistemaController.NuevoRegistro(folio, nombre, num_control, carreraId, documento_entregadoId, nivel_ingles, escuela_certificadoraId, puntaje, sexo);
+            if (result)
+            {
+                MudDialog?.Close(DialogResult.Ok(true));
+                Snackbar.Add("Datos almacenados correctamente.", Severity.Success);
+            }
+            else
+            {
+                MudDialog?.Close(DialogResult.Ok(false));
+                Snackbar.Add("Ocurrió un error al almacenar los datos.", Severity.Error);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async void ActualizarRegistro()
+    {
+        puntaje = checkPuntaje == "d-none" ? "N/A" : puntaje;
+        var validacion = await nuevoSistemaController.Validacion(nombre, num_control, puntaje, alumno.Num_control);
+        if (validacion.Item1)
+        {
+            foreach (var item in validacion.Item2)
+            {
+                Snackbar.Add(item, Severity.Error);
+            }
+            colorNombre = validacion.Item3.Nombre; colorNum_control = validacion.Item3.Num_control; colorPuntaje = validacion.Item3.Puntaje;
+        }
+        else
+        {
+            var result = nuevoSistemaController.ActualizarRegistro(nombre, num_control, carreraId, documento_entregadoId, nivel_ingles, escuela_certificadoraId, puntaje, sexo, alumno.ID);
+            if (result)
+            {
+                MudDialog?.Close(DialogResult.Ok(true));
+                Snackbar.Add("Datos actualizados correctamente.", Severity.Success);
+            }
+            else
+            {
+                MudDialog?.Close(DialogResult.Ok(false));
+                Snackbar.Add("Ocurrió un error al actualizar los datos.", Severity.Error);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async Task Nuevo()
+    {
+        Titulo = "Nuevo registro";
+        TextoBoton = "Guardar";
+        checkPuntaje = "d-none";
+        carreras = await carreraController.ConsultarTodo();
+        documentos = await documentoController.ConsultarTodo();
+        escuelas = await escuelaController.ConsultarTodo();
+
+        carreraId = carreras[0].ID;
+        documento_entregadoId = documentos[0].ID;
+        nivel_ingles = "B1";
+        escuela_certificadoraId = escuelas[0].ID;
+        sexo = "Hombre";
+    }
+
+    private async Task Actualizar()
+    {
+        Titulo = "Actualizar registro";
+        TextoBoton = "Actualizar";
+        carreras = await carreraController.ConsultarTodo();
+        documentos = await documentoController.ConsultarTodo();
+        escuelas = await escuelaController.ConsultarTodo();
+        nombre = alumno.Nombre;
+        num_control = alumno.Num_control;
+        foreach (var item in carreras)
+        {
+            if (alumno.Carrera == item.Nombre)
+            {
+                carreraId = item.ID;
+            }
+        }
+        foreach (var item in documentos)
+        {
+            if (alumno.Documento_entregado == item.Nombre)
+            {
+                documento_entregadoId = item.ID;
+            }
+        }
+        nivel_ingles = alumno.Nivel_ingles;
+        foreach (var item in escuelas)
+        {
+            if (alumno.Escuela_certificadora == item.Nombre)
+            {
+                escuela_certificadoraId = item.ID;
+            }
+        }
+        if (alumno.Puntaje == "N/A")
+        {
+            checkPuntaje = "d-none";      
+        }
+        else
+        {
+            checkPuntaje = "";
+        }
+        puntaje = alumno.Puntaje;
+        sexo = alumno.Sexo;
+    }
+
+    void Cancelar() => MudDialog?.Cancel();
+}

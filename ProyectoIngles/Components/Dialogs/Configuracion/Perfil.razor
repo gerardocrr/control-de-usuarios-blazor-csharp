@@ -1,0 +1,209 @@
+﻿@using ProyectoIngles.Data.Controllers
+@using ProyectoIngles.Data.Models
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+
+<MudDialog>
+    <DialogContent>
+        <div class="p-2">
+            <div class="mb-5">
+                <h1 class="fs-4">Perfil</h1>
+            </div>
+            <div class="row mb-5">
+                <div class="col-6">
+                    <button class="button primary w-100" @onclick="FormNombre">Cambiar nombre</button>
+                </div>
+                <div class="col-6">
+                    <button class="button primary w-100" @onclick="FormContraseña">Cambiar contraseña</button>
+                </div>
+            </div>
+            <div class="@classNombre">
+                <div class="mb-5">
+                    <label class="form-label" for="nombre_actual">Nombre actual: </label>
+                    <input class="form-control" type="text" id="nombre_actual" @bind="nombre_actual" disabled />
+                </div>
+                <div class="mb-5">
+                    <label class="form-label" for="nuevo_nombre">Nuevo nombre: </label>
+                    <input class="@colorNombre" type="text" id="nuevo_nombre" @bind="nuevo_nombre" />
+                </div>
+            </div>
+            <div class="@classContraseña">
+                <div class="mb-5">
+                    <label class="form-label" for="contraseña_actual">Contraseña actual: </label>
+                    <input class="@colorContraseñaActual" type="password" id="contraseña_actual" @bind="contraseña_actual" />
+                </div>
+                <div class="mb-5">
+                    <label class="form-label" for="nueva_contraseña">Nueva contraseña: </label>
+                    <input class="@colorNuevaContraseña mb-2" type="password" id="nueva_contraseña" @oninput="LongitudContraseña" @bind="nueva_contraseña" />
+                    <label class="@labelNuevaClass">@labelNuevaText</label>
+                </div>
+                <div class="mb-5">
+                    <label class="form-label" for="repetir_contraseña">Repite la contraseña: </label>
+                    <input class="@colorRepetirContraseña mb-2" type="password" id="repetir_contraseña" @oninput="VerificarContraseña" @bind="repetir_contraseña" />
+                    <label class="@labelRepetirClass">@labelRepetirText</label>
+                </div>
+            </div>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <div class="mb-5 mx-5">
+            <button class="button cancel mx-2" @onclick="Cancelar">Cancelar</button>
+            <button class="button primary" @onclick="Submit">@buttonText</button>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    [Parameter] public Usuarios? usuario { get; set; }
+    UsuariosController usuarioController = new UsuariosController();
+    LoginController loginController;
+    string? nombre_actual; string? nuevo_nombre; string? contraseña_actual; string? nueva_contraseña; string? repetir_contraseña;
+    string classNombre = ""; string classContraseña = "d-none"; string buttonText = "Actualizar nombre";
+    string? colorNombre = "form-control"; string? colorContraseñaActual = "form-control"; string? colorNuevaContraseña = "form-control"; string? colorRepetirContraseña = "form-control";
+    string? labelNuevaText = ""; string? labelNuevaClass = "text-danger";
+    string? labelRepetirText = ""; string? labelRepetirClass = "text-danger";
+
+    protected override void OnInitialized()
+    {
+        loginController = new LoginController(JSRuntime);
+        nombre_actual = usuario?.Nombre;
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+    }
+
+    public async Task Submit()
+    {
+        if (buttonText == "Actualizar nombre")
+        {
+            await ActualizarNombre();
+        }
+        else
+        {
+            await ActualizarContraseña();
+        }
+    }
+
+    private async Task ActualizarNombre()
+    {
+        var validacion = await usuarioController.ValidacionNombre(nuevo_nombre);
+        if (validacion.Item1)
+        {
+            foreach (var item in validacion.Item2)
+            {
+                Snackbar.Add(item, Severity.Error);
+            }
+            colorNombre = validacion.Item3.Nombre;
+        }
+        else
+        {
+            var result = usuarioController.ActualizarNombre(nuevo_nombre, usuario.ID);
+            if (result)
+            {
+                MudDialog?.Close(DialogResult.Ok(nuevo_nombre));
+                Snackbar.Add("Nombre actualizado correctamente.", Severity.Success);
+            }
+            else
+            {
+                MudDialog?.Close(DialogResult.Ok(false));
+                Snackbar.Add("Ocurrió un error al actualizar el nombre.", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ActualizarContraseña()
+    {
+        var validacion = usuarioController.ValidacionContraseña(contraseña_actual, nueva_contraseña, repetir_contraseña);
+        if (validacion.Item1)
+        {
+            foreach (var item in validacion.Item2)
+            {
+                Snackbar.Add(item, Severity.Error);
+            }
+            colorContraseñaActual = validacion.Item3.Contraseña_actual; colorNuevaContraseña = validacion.Item3.Nueva_contraseña; colorRepetirContraseña = validacion.Item3.Repetir_contraseña;
+        }
+        else
+        {
+            var nombre = await loginController.ReadLocalStorageName();
+            var hash = loginController.ConsultarHash(nombre);
+            if (loginController.VerifyPassword(contraseña_actual, hash))
+            {
+                var result = usuarioController.ActualizarContraseña(loginController.HashPassword(nueva_contraseña), usuario.ID);
+                if (result)
+                {
+                    MudDialog?.Close(DialogResult.Ok(true));
+                    Snackbar.Add("Contraseña actualizada correctamente.", Severity.Success);
+                }
+                else
+                {
+                    MudDialog?.Close(DialogResult.Ok(false));
+                    Snackbar.Add("Ocurrió un error al actualizar la contraseña.", Severity.Error);
+                }
+            }
+            else
+            {
+                colorContraseñaActual = "form-control border-danger";
+                colorNuevaContraseña = "form-control";
+                colorRepetirContraseña = "form-control";
+                Snackbar.Add("Contraseña incorrecta.", Severity.Error);
+            }
+        }
+    }
+
+    private void LongitudContraseña(ChangeEventArgs e)
+    {
+        nueva_contraseña = e.Value.ToString();
+        if (nueva_contraseña?.Length < 6)
+        {
+            labelNuevaClass = "text-danger";
+            labelNuevaText = "La contraseña debe tener al menos 6 caracteres.";
+        }
+        else
+        {
+            labelNuevaClass = "d-none";
+        }
+
+        if (nueva_contraseña != repetir_contraseña)
+        {
+            labelRepetirClass = "text-danger";
+            labelRepetirText = "Las contraseñas no coinciden.";
+        }
+        else
+        {
+            labelRepetirClass = "text-success";
+            labelRepetirText = "Las contraseñas coinciden.";
+        }
+    }
+
+    private void VerificarContraseña(ChangeEventArgs e)
+    {
+        repetir_contraseña = e.Value.ToString();
+        if (nueva_contraseña != repetir_contraseña)
+        {
+            labelRepetirClass = "text-danger";
+            labelRepetirText = "Las contraseñas no coinciden.";
+        }
+        else
+        {
+            labelRepetirClass = "text-success";
+            labelRepetirText = "Las contraseñas coinciden.";
+        }
+    }
+
+    private void FormNombre()
+    {
+        classNombre = "";
+        classContraseña = "d-none";
+        buttonText = "Actualizar nombre";
+    }
+
+    private void FormContraseña()
+    {
+        classNombre = "d-none";
+        classContraseña = "";
+        buttonText = "Actualizar contraseña";
+    }
+
+    void Cancelar() => MudDialog?.Cancel();
+}

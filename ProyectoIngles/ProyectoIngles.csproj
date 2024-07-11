@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="wwwroot\docs-antiguo-sistema\**" />
+    <Compile Remove="wwwroot\docs-constancias\**" />
+    <Content Remove="wwwroot\docs-antiguo-sistema\**" />
+    <Content Remove="wwwroot\docs-constancias\**" />
+    <EmbeddedResource Remove="wwwroot\docs-antiguo-sistema\**" />
+    <EmbeddedResource Remove="wwwroot\docs-constancias\**" />
+    <None Remove="wwwroot\docs-antiguo-sistema\**" />
+    <None Remove="wwwroot\docs-constancias\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="DocX" Version="3.0.0" />
+    <PackageReference Include="EPPlus" Version="7.1.2" />
+    <PackageReference Include="MudBlazor" Version="6.17.0" />
+  </ItemGroup>
+
+</Project>

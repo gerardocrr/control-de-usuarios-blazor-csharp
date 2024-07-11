@@ -1,0 +1,261 @@
+﻿@page "/otros"
+
+@using ProyectoIngles.Data.Models
+@using ProyectoIngles.Data.Controllers
+@using ProyectoIngles.Components.Dialogs.Otros
+@inject NavigationManager navigationManager
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<PageTitle>Otros</PageTitle>
+
+<div class="text-center">
+    <div class="row">
+        <div class="col">
+            <div class="text-start mb-10">
+                <button class="button primary" @onclick="NuevaCarrera">Nueva carrera</button>
+            </div>
+
+            <MudTable Items="@datosCarreras" Striped=true Filter="new Func<Carreras,bool>(FilterFuncCarreras1)">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">Carreras</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="searchTextCarrera" Immediate="true" Placeholder="Buscar por nombre" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                </ToolBarContent>
+                <HeaderContent>                    
+                    <MudTh>Nombre</MudTh>                    
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>                    
+                    <MudTd>@context.Nombre</MudTd>
+                    <MudTd Class="text-end">
+                        <button class="button orange" @onclick="() => EditarCarrera(context)" title="Editar carrera"><i class="bx bx-edit-alt"></i></button>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager PageSizeOptions="new int[] { 5, 10, 25, 50, 100, int.MaxValue }" HideRowsPerPage=true InfoFormat="{first_item}-{last_item} de {all_items}" />
+                </PagerContent>
+            </MudTable>
+        </div>
+        <div class="col">
+            <div class="text-start mb-10">
+                <button class="button primary" @onclick="NuevaEscuela">Nueva escuela</button>
+            </div>
+
+            <MudTable Items="@datosEscuelas" Striped=true Filter="new Func<Escuelas,bool>(FilterFuncEscuelas1)">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">Escuelas</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="searchTextEscuela" Immediate="true" Placeholder="Buscar por nombre" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                </ToolBarContent>
+                <HeaderContent>
+                    <MudTh>Nombre</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Nombre</MudTd>
+                    <MudTd Class="text-end">
+                        <button class="button orange" @onclick="() => EditarEscuela(context)" title="Editar escuela"><i class="bx bx-edit-alt"></i></button>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager PageSizeOptions="new int[] { 5, 10, 25, 50, 100, int.MaxValue }" HideRowsPerPage=true InfoFormat="{first_item}-{last_item} de {all_items}" />
+                </PagerContent>
+            </MudTable>
+        </div>
+        <div class="col">
+            <div class="text-start mb-10">
+                <button class="button primary" @onclick="NuevoDocumento">Nuevo documento</button>
+            </div>
+
+            <MudTable Items="@datosDocumentos" Striped=true Filter="new Func<Documentos,bool>(FilterFuncDocumentos1)">
+                <ToolBarContent>
+                    <MudText Typo="Typo.h6">Documentos</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="searchTextDocumento" Immediate="true" Placeholder="Buscar por nombre" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                </ToolBarContent>
+                <HeaderContent>
+                    <MudTh>Nombre</MudTh>
+                    <MudTh></MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Nombre</MudTd>
+                    <MudTd Class="text-end">
+                        <button class="button orange" @onclick="() => EditarDocumento(context)" title="Editar documento"><i class="bx bx-edit-alt"></i></button>
+                    </MudTd>
+                </RowTemplate>
+                <PagerContent>
+                    <MudTablePager PageSizeOptions="new int[] { 5, 10, 25, 50, 100, int.MaxValue }" HideRowsPerPage=true InfoFormat="{first_item}-{last_item} de {all_items}" />
+                </PagerContent>
+            </MudTable>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string searchTextCarrera = ""; private string searchTextEscuela = ""; private string searchTextDocumento = "";
+    private List<Carreras>? datosCarreras = new List<Carreras>();
+    private List<Escuelas>? datosEscuelas = new List<Escuelas>();
+    private List<Documentos>? datosDocumentos = new List<Documentos>();
+    private CarrerasController carrerasController = new CarrerasController();
+    private EscuelasController escuelasController = new EscuelasController();
+    private DocumentosController documentosController = new DocumentosController();
+    private LoginController? loginController;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        loginController = new LoginController(JSRuntime);
+
+        if (firstRender)
+        {
+            var authorize = await loginController.ReadLocalStorage();
+            if (!authorize)
+            {
+                navigationManager.NavigateTo("/");
+            }
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+        datosCarreras = await carrerasController.ConsultarTodo();
+        datosEscuelas = await escuelasController.ConsultarTodo();
+        datosDocumentos = await documentosController.ConsultarTodo();
+    }
+
+    private async Task NuevaCarrera()
+    {
+        var parameters = new DialogParameters<FormCarrera>();
+        parameters.Add(x => x.Metodo, "Nuevo");
+        var dialog = await DialogService.ShowAsync<FormCarrera>(null, parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            datosCarreras = await carrerasController.ConsultarTodo();
+        }
+    }
+
+    private async Task EditarCarrera(Carreras carrera)
+    {
+        if (await carrerasController.CompararCarreras(carrera))
+        {
+            var parameters = new DialogParameters<FormCarrera>();
+            parameters.Add(x => x.carrera, carrera);
+            var dialog = await DialogService.ShowAsync<FormCarrera>(null, parameters);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                datosCarreras = await carrerasController.ConsultarTodo();
+            }
+        }
+        else
+        {
+            Snackbar.Add("Tus datos no están actualizados, recarga la página para actualizarlos.", Severity.Warning);
+        }
+    }
+
+    private async Task NuevoDocumento()
+    {
+        var parameters = new DialogParameters<FormDocumento>();
+        parameters.Add(x => x.Metodo, "Nuevo");
+        var dialog = await DialogService.ShowAsync<FormDocumento>(null, parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            datosDocumentos = await documentosController.ConsultarTodo();
+        }
+    }
+
+    private async Task EditarDocumento(Documentos documento)
+    {
+        if (await documentosController.CompararDocumentos(documento))
+        {
+            var parameters = new DialogParameters<FormDocumento>();
+            parameters.Add(x => x.documento, documento);
+            var dialog = await DialogService.ShowAsync<FormDocumento>(null, parameters);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                datosDocumentos = await documentosController.ConsultarTodo();
+            }
+        }
+        else
+        {
+            Snackbar.Add("Tus datos no están actualizados, recarga la página para actualizarlos.", Severity.Warning);
+        }
+    }
+
+    private async Task NuevaEscuela()
+    {
+        var parameters = new DialogParameters<FormEscuela>();
+        parameters.Add(x => x.Metodo, "Nuevo");
+        var dialog = await DialogService.ShowAsync<FormEscuela>(null, parameters);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            datosEscuelas = await escuelasController.ConsultarTodo();
+        }
+    }
+
+    private async Task EditarEscuela(Escuelas escuela)
+    {
+        if (await escuelasController.CompararEscuelas(escuela))
+        {
+            var parameters = new DialogParameters<FormEscuela>();
+            parameters.Add(x => x.escuela, escuela);
+            var dialog = await DialogService.ShowAsync<FormEscuela>(null, parameters);
+            var result = await dialog.Result;
+
+            if (!result.Canceled)
+            {
+                datosEscuelas = await escuelasController.ConsultarTodo();
+            }
+        }
+        else
+        {
+            Snackbar.Add("Tus datos no están actualizados, recarga la página para actualizarlos.", Severity.Warning);
+        }
+    }
+
+    private bool FilterFuncCarreras1(Carreras carrera) => FilterFuncCarreras(carrera, searchTextCarrera);
+
+    private bool FilterFuncCarreras(Carreras carrera, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (carrera.Nombre.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    private bool FilterFuncEscuelas1(Escuelas escuela) => FilterFuncEscuelas(escuela, searchTextEscuela);
+
+    private bool FilterFuncEscuelas(Escuelas escuela, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (escuela.Nombre.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+
+    private bool FilterFuncDocumentos1(Documentos documento) => FilterFuncDocuemntos(documento, searchTextDocumento);
+
+    private bool FilterFuncDocuemntos(Documentos documento, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (documento.Nombre.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+}

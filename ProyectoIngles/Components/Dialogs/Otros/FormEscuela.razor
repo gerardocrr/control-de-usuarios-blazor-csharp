@@ -1,0 +1,130 @@
+﻿@using ProyectoIngles.Data.Controllers
+@using ProyectoIngles.Data.Models
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <div class="p-2">
+            <div class="mb-5">
+                <h1 class="fs-4">@Titulo</h1>
+            </div>
+            <div class="mb-5">
+                <label class="form-label" for="nombre">Nombre: </label>
+                <input class="@colorNombre" type="text" id="nombre" @bind="nombre" />
+            </div>
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <div class="mb-5 mx-5">
+            <button class="button cancel mx-2" @onclick="Cancelar">Cancelar</button>
+            <button class="button primary" @onclick="Submit">@TextoBoton</button>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    [Parameter] public Escuelas escuela { get; set; }
+    [Parameter] public string? Metodo { get; set; }
+    string? Titulo; string? TextoBoton; string? nombre;
+    string? colorNombre = "form-control";
+
+    private EscuelasController escuelaController = new EscuelasController();
+
+    protected override void OnInitialized()
+    {
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+        if (Metodo == "Nuevo")
+        {
+            Nuevo();
+        }
+        else
+        {
+            Actualizar();
+        }
+    }
+
+    public void Submit()
+    {
+        if (Metodo == "Nuevo")
+        {
+            NuevoRegistro();
+        }
+        else
+        {
+            ActualizarRegistro();
+        }
+    }
+
+    private async void NuevoRegistro()
+    {
+        var validacion = await escuelaController.Validacion(nombre);
+        if (validacion.Item1)
+        {
+            foreach (var item in validacion.Item2)
+            {
+                Snackbar.Add(item, Severity.Error);
+            }
+            colorNombre = validacion.Item3.Nombre;
+        }
+        else
+        {
+            var result = escuelaController.NuevoRegistro(nombre);
+            if (result)
+            {
+                MudDialog?.Close(DialogResult.Ok(true));
+                Snackbar.Add("Datos almacenados correctamente.", Severity.Success);
+            }
+            else
+            {
+                MudDialog?.Close(DialogResult.Ok(false));
+                Snackbar.Add("Ocurrió un error al almacenar los datos.", Severity.Error);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private async void ActualizarRegistro()
+    {
+        var validacion = await escuelaController.Validacion(nombre, escuela.Nombre);
+        if (validacion.Item1)
+        {
+            foreach (var item in validacion.Item2)
+            {
+                Snackbar.Add(item, Severity.Error);
+            }
+            colorNombre = validacion.Item3.Nombre;
+        }
+        else
+        {
+            var result = escuelaController.ActualizarRegistro(nombre, escuela.ID);
+            if (result)
+            {
+                MudDialog?.Close(DialogResult.Ok(true));
+                Snackbar.Add("Datos actualizados correctamente.", Severity.Success);
+            }
+            else
+            {
+                MudDialog?.Close(DialogResult.Ok(false));
+                Snackbar.Add("Ocurrió un error al actualizar los datos.", Severity.Error);
+            }
+        }
+    }
+
+    private void Nuevo()
+    {
+        Titulo = "Nueva escuela";
+        TextoBoton = "Guardar";
+    }
+
+    private void Actualizar()
+    {
+        Titulo = "Actualizar escuela";
+        TextoBoton = "Actualizar";
+        nombre = escuela.Nombre;
+    }
+
+    void Cancelar() => MudDialog?.Cancel();
+}

@@ -1,0 +1,143 @@
+﻿@using ProyectoIngles.Data.Controllers
+@using ProyectoIngles.Data.Models
+@inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment _env
+
+<MudDialog>
+    <DialogContent>
+        <div class="p-2">
+            <div class="mb-5">
+                <h1 class="fs-4">Datos de la constancia</h1>
+            </div>
+            <div class="row">
+                <div class="col-2 mb-5">
+                    <label class="form-label" for="folio">Folio: </label>
+                    <input class="form-control" type="text" id="folio" disabled @bind="folio" />
+                </div>
+                <div class="col-6 mb-5">
+                    <label class="form-label" for="nombre">Nombre: </label>
+                    <input class="@colorNombre" type="text" id="nombre" @bind="nombre" />
+                </div>
+                <div class="col-4 mb-5">
+                    <label class="form-label" for="num_control">Num. control: </label>
+                    <input class="@colorNum_control" type="text" id="num_control" @bind="num_control" />
+                </div>
+            </div>           
+            <div class="mb-5">
+                <label class="form-label" for="carrera">Carrera: </label>
+                <input class="@colorCarrera" type="text" id="carrera" @bind="carrera" />
+            </div>
+            <div class="mb-5">
+                <label class="form-label" for="documento">Documento entregadó: </label>
+                <input class="@colorDocumento_entregado" type="text" id="documento" @bind="documento" />
+            </div>
+            <div class="mb-5">
+                <label class="form-label" for="resumen">Escuela certificadora: </label>
+                <input class="@colorEscuela_certificadora" type="text" id="resumen" @bind="escuela" />
+            </div>
+            @if (alumno.Puntaje == "N/A")
+            {            
+                <div class="mb-5">
+                    <label class="form-label" for="nivel_ingles">Nivel de ingles: </label>
+                    <input class="@colorNivel_ingles" type="text" id="nivel_ingles" @bind="nivel_ingles" />
+                </div>               
+            }
+            else
+            {
+                <div class="row">
+                    <div class="mb-5 col">
+                        <label class="form-label" for="resultado_obtenido">Resultado: </label>
+                        <input class="@colorResultado_obtenido" type="text" id="resultado_obtenido" @bind="puntaje"/>
+                    </div>
+                    <div class="mb-5 col">
+                        <label class="form-label" for="nivel_ingles">Nivel de ingles: </label>
+                        <input class="@colorNivel_ingles" type="text" id="nivel_ingles" @bind="nivel_ingles" />
+                    </div>
+                </div>
+            }
+            
+            
+        </div>
+    </DialogContent>
+    <DialogActions>
+        <div class="mb-5 mx-5">
+            <button class="button cancel mx-2" @onclick="Cancelar">Cancelar</button>
+            <button class="button primary" @onclick="Submit">Generar constancia</button>
+        </div>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+    [Parameter] public AlumnosNuevoSistema alumno { get; set; }
+    private NuevoSistemaController nuevoSistemaController = new NuevoSistemaController();
+    private ConstanciasController constanciasController;
+
+    string? folio; string? nombre; string? num_control; string? carrera; string? documento; string? escuela; string? nivel_ingles; string? resultado_obtenido; string? puntaje;
+    string? colorNombre = "form-control"; string? colorNum_control = "form-control"; string? colorCarrera = "form-control"; string? colorDocumento_entregado = "form-control"; string? colorNivel_ingles = "form-control"; string? colorEscuela_certificadora = "form-control"; string? colorResultado_obtenido = "form-control";
+
+    protected override void OnInitialized()
+    {
+        constanciasController = new ConstanciasController(_env);
+        Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+        Snackbar.Configuration.VisibleStateDuration = 2500;
+        Snackbar.Configuration.HideTransitionDuration = 500;
+
+        folio = alumno.Folio;
+        nombre = alumno.Nombre;
+        num_control = alumno.Num_control;
+        carrera = alumno.Carrera;
+        documento = alumno.Documento_entregado;
+        escuela = alumno.Escuela_certificadora;
+        puntaje = alumno.Puntaje + " puntos";
+        if (alumno.Puntaje == "N/A")
+        {
+            resultado_obtenido = "Resultado obtenido de acuerdo al marco comun europeo";
+        }
+        else
+        {
+            resultado_obtenido = "Resultado obtenido " + puntaje + " de acuerdo al marco comun europeo";
+        }        
+        nivel_ingles = alumno.Nivel_ingles;
+    }
+
+    public async Task Submit()
+    {
+        var validacion = constanciasController.Validacion(nombre, num_control, carrera, documento, escuela, nivel_ingles, resultado_obtenido);
+        if (validacion.Item1)
+        {
+            foreach (var item in validacion.Item2)
+            {
+                Snackbar.Add(item, Severity.Error);
+            }
+            colorNombre = validacion.Item3.Nombre; colorNum_control = validacion.Item3.Num_control; colorCarrera = validacion.Item3.Carrera; colorNivel_ingles = validacion.Item3.Nivel_ingles; colorResultado_obtenido = validacion.Item3.Resultado_obtenido; colorDocumento_entregado = validacion.Item3.Docuemnto; colorEscuela_certificadora = validacion.Item3.Escuela;
+        }
+        else
+        {
+            DateTime fecha = DateTime.Now;
+            await constanciasController.GenerarConstancia(fecha.ToString("dd/MMMM/yyyy"), folio, nombre, num_control, carrera, documento.ToUpper(), escuela.ToUpper(), resultado_obtenido.ToUpper(), nivel_ingles, fecha.ToString("dd 'de' MMMM 'de' yyyy"));
+            var result = nuevoSistemaController.ActualizarFolio(int.Parse(folio), alumno.ID);
+            if (alumno.Fecha_constancia_generada == "N/A")
+            {
+                nuevoSistemaController.ActualizarFechaConstancia(fecha.ToString("dd/MM/yyyy"), alumno.ID);
+            }
+
+            if (result)
+            {
+                await JSRuntime.InvokeVoidAsync("downloadFile", "/docs/constancias/CONSTANCIA - " + nombre?.ToUpper() + ".docx");
+                MudDialog?.Close(DialogResult.Ok(true));
+                Snackbar.Add("Constancia generada correctamente.", Severity.Info);
+                await Task.Delay(2000);
+                constanciasController.EliminarArchivo(nombre);
+            }
+            else
+            {
+                MudDialog?.Close(DialogResult.Ok(false));
+                Snackbar.Add("Ocurrió un error al generar la constancia.", Severity.Error);
+            }
+        }
+    }
+
+    void Cancelar() => MudDialog?.Cancel();
+}
